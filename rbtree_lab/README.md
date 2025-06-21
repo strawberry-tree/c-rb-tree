@@ -2,6 +2,8 @@
 
 Balanced search tree로 많이 쓰이는 Red-black tree (이하 RB tree)를 C 언어로 구현하는 과제입니다.
 구현하는 추상 자료형 (ADT: abstract data type)은 ordered set, multiset 입니다.
+ - ordered set: 자동 정렬
+ - multi set: 중복을 허용
 
 ## 구현 범위
 다음 기능들을 수행할 수 있도록 RB tree를 구현합니다.
@@ -13,6 +15,7 @@ Balanced search tree로 많이 쓰이는 Red-black tree (이하 RB tree)를 C �
 
 - `tree_insert(tree, key)`: key 추가
   - 구현하는 ADT가 multiset이므로 이미 같은 key의 값이 존재해도 하나 더 추가 합니다.
+  - 이 때 동일한 값이면, 오른쪽 자식으로 보내줍니다.
 - ptr = `tree_find(tree, key)`
   - RB tree내에 해당 key가 있는지 탐색하여 있으면 해당 node pointer 반환
   - 해당하는 node가 없으면 NULL 반환
