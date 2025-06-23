@@ -18,6 +18,9 @@ rbtree *new_rbtree(void) {
 }
 
 void free_nodes(const rbtree *t, node_t *curr){
+  // 예외 처리
+  if (t == NULL || curr == NULL) return;
+
   // 후위 순회와 같은 방식으로, 자식 노드를 재귀적으로 free하고, 자신을 free
   if (curr == t -> nil) return;
   free_nodes(t, curr -> left);
@@ -26,6 +29,9 @@ void free_nodes(const rbtree *t, node_t *curr){
 }
 
 void delete_rbtree(rbtree *t) {
+  // 예외 처리
+  if (t == NULL) return;
+
   // nil 노드를 포함한 모든 노드를 free하고, rbtree도 free
   free_nodes(t, t -> root);
   free(t -> nil);
@@ -34,6 +40,9 @@ void delete_rbtree(rbtree *t) {
 
 // 우회전 연산을 한 뒤, 부모 노드를 반환
 void rotate_right(rbtree *t, node_t *base){
+  // 예외 처리
+  if (t == NULL || base == NULL) return;
+
   // 왼쪽 자식은 새로운 부모 노드가 됨
   // 세로운 루트의 오른쪽 서브트리를, 기준 노드의 왼쪽에 붙임
   node_t *new_parent = base -> left;
@@ -48,7 +57,7 @@ void rotate_right(rbtree *t, node_t *base){
   // 새로운 부모의 부모는, 기준 노드의 부모
   new_parent -> parent = base -> parent;
 
-  // 기존 노드의 부모의 자식에 새로운 부모 할당
+  // 기존 노드의 부모의 자식에 새로운 부모 연결
   if (base -> parent == t -> nil){
     t -> root = new_parent;
   } else if (base == base -> parent -> right){
@@ -64,6 +73,9 @@ void rotate_right(rbtree *t, node_t *base){
 
 // 좌회전 연산을 한 뒤, 부모 노드를 반환
 void rotate_left(rbtree *t, node_t *base){
+  // 예외 처리
+  if (t == NULL || base == NULL) return;
+
   // 오른쪽 자식은 새로운 부모 노드가 됨
   // 세로운 루트의 왼쪽 서브트리를, 기준 노드의 오른쪽에 붙임
   node_t *new_parent = base -> right;
@@ -92,9 +104,17 @@ void rotate_left(rbtree *t, node_t *base){
   base -> parent = new_parent;
 }
 
-void fixDoubleRed(rbtree *t, node_t *newNode){
+void swap_color(node_t *a, node_t *b){
+  // 두 노드의 색 바꾸기
+  color_t temp = a -> color;
+  a -> color = b -> color;
+  b -> color = temp;
+
+}
+
+void insert_fix(rbtree *t, node_t *newNode){
   // 부모가 RED일 때 반복
-  node_t *newParent, *newGP, *newUncle;
+  node_t *newParent, *newGP, *newUncle; // 부모, 조부모, 삼촌
 
   while ((newParent = newNode -> parent)-> color == RBTREE_RED){
     // 삼촌 찾기
@@ -115,37 +135,19 @@ void fixDoubleRed(rbtree *t, node_t *newNode){
       // 조부모 다시 체크
       newNode = newGP;
     } else {
-      color_t temp;
       // 삼촌이 black인 경우
       if (newParent -> right == newNode && newGP -> right == newParent){
-        // 부모와 조부모의 색을 바꿈
-        temp = newParent -> color;
-        newParent -> color = newGP -> color;
-        newGP -> color = temp;
-
-        // 조부모 기준 좌회전
-        rotate_left(t, newGP);
-
+        swap_color(newParent, newGP);   // 부모와 조부모의 색을 바꿈
+        rotate_left(t, newGP);          // 조부모 기준 좌회전
       } else if (newParent -> left == newNode && newGP -> left == newParent){
-
-        // 부모와 조부모의 색을 바꿈
-        temp = newParent -> color;
-        newParent -> color = newGP -> color;
-        newGP -> color = temp;
-
-        // 조부모 기준 우회전
-        rotate_right(t, newGP);
-
+        swap_color(newParent, newGP);   // 부모와 조부모의 색을 바꿈
+        rotate_right(t, newGP);         // 조부모 기준 우회전
       } else if (newParent -> right == newNode && newGP -> left == newParent){
-        // 부모 기준 좌회전
         rotate_left(t, newParent);
-        newNode = newNode -> left;
-
-      } else if (newParent -> left == newNode && newGP -> right == newParent) {
-        // 이건 조건문 안 써도 되지만 명확히 하기 위해 그냥 써둠
-        // 부모 기준 우회전
+        newNode = newNode -> left;      // 부모 기준 좌회전
+      } else {
         rotate_right(t, newParent);
-        newNode = newNode -> right;
+        newNode = newNode -> right;     // 부모 기준 우회전
       }
     }
   }
@@ -181,16 +183,17 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   newNode -> parent = prev;         // 부모는 prev
   newNode -> key = key;
 
+  // 부모 노드와 삽입된 노드 연결
   if (prev == t -> nil){
     t -> root = newNode;
-  } else if (key > prev -> key){
+  } else if (prev -> key <= key){
     prev -> right = newNode;
   } else {
     prev -> left = newNode;
   }
 
   // 부모, 자식이 연속으로 RED일 수도 있으니 Fix
-  fixDoubleRed(t, newNode);
+  insert_fix(t, newNode);
 
   return newNode;
 }
@@ -238,85 +241,61 @@ node_t *rbtree_max(const rbtree *t) {
   return maxNode;
 }
 
-void fixDoubleBlack(rbtree *t, node_t *dbNode){
+void delete_fix(rbtree *t, node_t *dbNode){
   while (dbNode != t -> root && dbNode -> color == RBTREE_BLACK){
     node_t *repParent = dbNode -> parent;
     node_t *sibling;
+
     if (repParent -> left == dbNode){
       sibling = repParent -> right;
     } else {
       sibling = repParent -> left;
     }
+
     if (sibling -> color == RBTREE_RED){
       // CASE 1
-      // 부모와 형제의 색 바꾸기
-      color_t temp;
-      temp = repParent -> color;
-      repParent -> color = sibling -> color;
-      sibling -> color = temp;
-
-      // 부모 기준 회전
+      swap_color(repParent, sibling);       // 부모와 형제의 색 바꾸기
+      
       if (repParent -> left == dbNode){
-        rotate_left(t, repParent);
+        rotate_left(t, repParent);          // 부모 기준 좌회전
       } else {
-        rotate_right(t, repParent);
+        rotate_right(t, repParent);         // 부모 기준 우회전
       }
+
     } else if (sibling -> left -> color == RBTREE_BLACK && sibling -> right -> color == RBTREE_BLACK){
       // CASE 2
-      // 형제를 Red로 변경
-      sibling -> color = RBTREE_RED;
+      sibling -> color = RBTREE_RED;          // 형제를 Red로 변경
       dbNode = repParent;
+
     } else if (repParent -> left == dbNode && sibling -> right -> color == RBTREE_BLACK){
       // CASE 3 -> DB가 왼쪽 자식
-      // 오른쪽 형제와 형제의 왼쪽 자녀의 색 바꾸기
-      color_t temp;
-      temp = sibling -> color;
-      sibling -> color = sibling -> left -> color;
-      sibling -> left -> color = temp;
+      swap_color(sibling, sibling -> left);   // 오른쪽 형제와 형제의 왼쪽 자녀의 색 바꾸기  
+      rotate_right(t, sibling);               // 오른쪽 형제 기준 우회전
 
-      // 오른쪽 형제 기준 우회전
-      rotate_right(t, sibling);
     } else if (repParent -> right == dbNode && sibling -> left -> color == RBTREE_BLACK){
       // CASE 3 -> DB가 오른쪽 자식
-      // 왼쪽 형제와 형제의 오른쪽 자녀의 색 바꾸기
-      color_t temp;
-      temp = sibling -> color;
-      sibling -> color = sibling -> right -> color;
-      sibling -> right -> color = temp;
+      swap_color(sibling, sibling -> right);  // 왼쪽 형제와 형제의 오른쪽 자녀의 색 바꾸기
+      rotate_left(t, sibling);                // 왼쪽 형제 기준 좌회전
 
-      // 왼쪽 형제 기준 좌회전
-      rotate_left(t, sibling);
-      
-    } else if (repParent -> left == dbNode){
+    } else {
       // CASE 4 -> DB가 왼쪽 자식
       // 색 바꾸기
       sibling -> color = repParent -> color;
-      sibling -> right -> color = RBTREE_BLACK;
+      
       repParent -> color = RBTREE_BLACK;
 
-      // 부모 기준 좌회전
-      rotate_left(t, repParent);
-
-      // 관찰하는 노드를 루트노드로 
-      dbNode = t -> root;
-
-    } else {
-      // CASE 4 -> DB가 오른쪽 자식
-      // 색 바꾸기
-      sibling -> color = repParent -> color;
-      sibling -> left -> color = RBTREE_BLACK;
-      repParent -> color = RBTREE_BLACK;
-
-      // 부모 기준 우회전
-      rotate_right(t, repParent);
-
-      // while문을 종료
-      dbNode = t -> root;
+      if (repParent -> left == dbNode){
+        sibling -> right -> color = RBTREE_BLACK;
+        rotate_left(t, repParent);              // 부모 기준 좌회전
+      } else {
+        sibling -> left -> color = RBTREE_BLACK;
+        rotate_right(t, repParent);             // 부모 기준 우회전
+      }
+      dbNode = t -> root;                     // 관찰하는 노드를 루트노드로 
     }
   }
   // 타깃을 블랙으로 변경
   dbNode -> color = RBTREE_BLACK;
-  
 }
 
 void change_connection(rbtree *t, node_t *erase, node_t *repNode){
@@ -362,7 +341,7 @@ int rbtree_erase(rbtree *t, node_t *erase){
   }
   if (eraseColor == RBTREE_BLACK){
     // 검정색 노드가 지워진 경우, 이를 해결해야 함!
-    fixDoubleBlack(t, repNode);
+    delete_fix(t, repNode);
   }
   return 1;
 }
