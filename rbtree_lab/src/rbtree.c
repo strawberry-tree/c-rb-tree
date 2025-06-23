@@ -355,6 +355,7 @@ int rbtree_erase(rbtree *t, node_t *erase){
     // 검정색 노드가 지워진 경우, 이를 해결해야 함!
     delete_fix(t, repNode);
   }
+  t -> nil -> parent = t -> nil;  // 부모를 다시 nil 처리... 근데 필수적인진 모르것음
   return 0;
 }
 
