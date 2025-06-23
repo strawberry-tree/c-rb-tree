@@ -6,7 +6,7 @@ rbtree *new_rbtree(void) {
   rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));
   node_t *nilNode = (node_t *)calloc(1, sizeof(node_t));  
   
-  // (TODO) 나도 널 처리 해야겠다.
+  // 메모리 할당에 실패했을 때
   if (p == NULL || nilNode == NULL) return NULL;
 
   // 앞으로 사용할 닐 노드를 정의하기
@@ -18,6 +18,7 @@ rbtree *new_rbtree(void) {
 }
 
 void free_nodes(const rbtree *t, node_t *curr){
+  // 후위 순회와 같은 방식으로, 자식 노드를 재귀적으로 free하고, 자신을 free
   if (curr == t -> nil) return;
   free_nodes(t, curr -> left);
   free_nodes(t, curr -> right);
@@ -25,6 +26,7 @@ void free_nodes(const rbtree *t, node_t *curr){
 }
 
 void delete_rbtree(rbtree *t) {
+  // nil 노드를 포함한 모든 노드를 free하고, rbtree도 free
   free_nodes(t, t -> root);
   free(t -> nil);
   free(t);
@@ -157,21 +159,17 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
 
   // 넣을 위치를 찾기
   node_t *curr, *prev;  // 현재 노드, 직전 노드
-  int isRight = -1;      // 루트노드면 -1, 오른쪽자식이면 1, 왼쪽자식이면 0
   prev = t -> nil;
   curr = t -> root;
 
   while (curr != t -> nil){
+    prev = curr;
     if (curr -> key <= key){
       // 삽입할 값보다 작거나 같으면 오른쪽으로
-      prev = curr;
       curr = curr -> right;
-      isRight = 1;
     } else {
       // 삽입할 값보다 크면 왼쪽으로
-      prev = curr;
       curr = curr -> left;
-      isRight = 0;
     }
   }
 
@@ -183,9 +181,9 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   newNode -> parent = prev;         // 부모는 prev
   newNode -> key = key;
 
-  if (isRight == -1){
+  if (prev == t -> nil){
     t -> root = newNode;
-  } else if (isRight == 1){
+  } else if (key > prev -> key){
     prev -> right = newNode;
   } else {
     prev -> left = newNode;
@@ -215,6 +213,8 @@ node_t *rbtree_find(const rbtree *t, const key_t key) {
       return curr;
     }
   }
+
+  // 찾았는데 없으면 NULL 반환
   return NULL;
 }
 
@@ -319,82 +319,56 @@ void fixDoubleBlack(rbtree *t, node_t *dbNode){
   
 }
 
+void change_connection(rbtree *t, node_t *erase, node_t *repNode){
+  // erase의 부모 노드 및 erase의 자식 노드를 연결하고
+  // erase 노드를 free해주는 함수
+  if (erase -> parent == t -> nil){
+    t -> root = repNode;
+  } else if (erase -> parent -> right == erase) {
+    erase -> parent -> right = repNode;
+  } else {
+    erase -> parent -> left = repNode;
+  }
+  repNode -> parent = erase -> parent;
+  free(erase);
+}
 
 int rbtree_erase(rbtree *t, node_t *erase){
   // 예외 처리
   if (t == NULL || erase == NULL) return 0;
 
-  color_t eraseColor; // 삭제된 색
-  node_t *repNode = t -> nil; // 삭제된 위치의 노드
+  node_t *repNode;                        // 삭제된 위치를 대체할 노드
+  color_t eraseColor;                     // 삭제된 색
 
-  if ((erase -> left == t -> nil) && (erase -> right == t -> nil)){
-    // 삭제할 노드의 자식이 없는 경우
-    if (erase -> parent == t -> nil){
-      t -> root = t -> nil;
-    } else if (erase -> parent -> right == erase) {
-      erase -> parent -> right = t -> nil;
-    } else {
-      erase -> parent -> left = t -> nil;
-    }
-    t -> nil -> parent = erase -> parent;
-    eraseColor = erase -> color;
-    free(erase);
-  } else if ((erase -> left == t -> nil)){
-    repNode = erase -> right;
-    // 삭제할 노드가 오른쪽 자식만 있는 경우
-    if (erase -> parent == t -> nil){
-      t -> root = erase -> right;
-    } else if (erase -> parent -> right == erase) {
-      erase -> parent -> right = erase -> right;
-    } else {
-      erase -> parent -> left = erase -> right;
-    }
-    erase -> right -> parent = erase -> parent;
-    eraseColor = erase -> color;
-    free(erase);
-  } else if ((erase -> right == t -> nil)){
-    repNode = erase -> left;
-    // 삭제할 노드가 왼쪽 자식만 있는 경우
-    if (erase -> parent == t -> nil){
-      t -> root = erase -> left;
-    } else if (erase -> parent -> right == erase) {
-        erase -> parent -> right = erase -> left;
-    } else {
-      erase -> parent -> left= erase -> left;
-    }
-    erase -> left -> parent = erase -> parent;
-    eraseColor = erase -> color;
-    free(erase);
-  } else {
+  if (erase -> left != t -> nil && erase -> right != t -> nil){
     // 양쪽 자식이 있는 경우- 찾아라 계승자
     node_t *successor = erase -> left;
     while (successor -> right != t -> nil){
       successor = successor -> right;
     }
     repNode = successor -> left;
-    
     eraseColor = successor -> color;
-  
-    if (successor -> parent == t -> nil){
-      t -> root = repNode;
-    } else if (successor -> parent -> left == successor){
-      successor -> parent -> left = repNode;
-      
-    } else if (successor -> parent -> right == successor){
-      successor -> parent -> right = repNode;
-    }
-    repNode -> parent = successor -> parent;
-
     erase -> key = successor -> key;
-    free(successor); 
+    change_connection(t, successor, repNode);
+  } else {
+    // 한쪽 자식만 있거나, 자식이 없는 경우 - 남은 자식이 계승. 사실 둘 다 없으면 차피 nil이 계승하니 상관없음.
+    if (erase -> left == t -> nil){
+      repNode = erase -> right;
+    } else {
+      repNode = erase -> left;
+    }
+    eraseColor = erase -> color;
+    change_connection(t, erase, repNode);
   }
   if (eraseColor == RBTREE_BLACK){
+    // 검정색 노드가 지워진 경우, 이를 해결해야 함!
     fixDoubleBlack(t, repNode);
   }
   return 1;
 }
 
 key_t *inorder(const rbtree *t, key_t *arr, key_t *target, node_t *curr){
+  // 전위 순회를 사용하며 *arr에 노드 값 저장
   if (curr == t -> nil) return arr;
   arr = inorder(t, arr, target, curr -> left);
   if (arr < target){
@@ -406,6 +380,8 @@ key_t *inorder(const rbtree *t, key_t *arr, key_t *target, node_t *curr){
 }
 
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
+  // 전위 순회 사용 시, 값을 오름차순으로 탐색
+  // 주소 arr + n 잔까지만 추가하게끔 매개변수 보냄
   inorder(t, arr, arr + n, t -> root);
   return 0;
 }
