@@ -113,6 +113,9 @@ void swap_color(node_t *a, node_t *b){
 }
 
 void insert_fix(rbtree *t, node_t *newNode){
+  // 예외 처리
+  if (t == NULL || newNode == NULL) return;
+
   // 부모가 RED일 때 반복
   node_t *newParent, *newGP, *newUncle; // 부모, 조부모, 삼촌
 
@@ -222,6 +225,8 @@ node_t *rbtree_find(const rbtree *t, const key_t key) {
 }
 
 node_t *rbtree_min(const rbtree *t) {
+  if (t == NULL) return NULL;
+
   // 왼쪽으로만 이동
   node_t *minNode = t -> root;
 
@@ -232,6 +237,8 @@ node_t *rbtree_min(const rbtree *t) {
 }
 
 node_t *rbtree_max(const rbtree *t) {
+  if (t == NULL) return NULL;
+
   // 오른쪽으로만 이동
   node_t *maxNode = t -> root;
 
@@ -242,6 +249,9 @@ node_t *rbtree_max(const rbtree *t) {
 }
 
 void delete_fix(rbtree *t, node_t *dbNode){
+  // 예외 처리
+  if (t == NULL || dbNode == NULL) return;
+
   while (dbNode != t -> root && dbNode -> color == RBTREE_BLACK){
     node_t *repParent = dbNode -> parent;
     node_t *sibling;
@@ -299,6 +309,8 @@ void delete_fix(rbtree *t, node_t *dbNode){
 }
 
 void change_connection(rbtree *t, node_t *erase, node_t *repNode){
+  if (t == NULL || erase == NULL || repNode == NULL) return;
+
   // erase의 부모 노드 및 erase의 자식 노드를 연결하고
   // erase 노드를 free해주는 함수
   if (erase -> parent == t -> nil){
@@ -314,7 +326,7 @@ void change_connection(rbtree *t, node_t *erase, node_t *repNode){
 
 int rbtree_erase(rbtree *t, node_t *erase){
   // 예외 처리
-  if (t == NULL || erase == NULL) return 0;
+  if (t == NULL || erase == NULL) return 1;
 
   node_t *repNode;                        // 삭제된 위치를 대체할 노드
   color_t eraseColor;                     // 삭제된 색
@@ -325,9 +337,9 @@ int rbtree_erase(rbtree *t, node_t *erase){
     while (successor -> right != t -> nil){
       successor = successor -> right;
     }
+    erase -> key = successor -> key;
     repNode = successor -> left;
     eraseColor = successor -> color;
-    erase -> key = successor -> key;
     change_connection(t, successor, repNode);
   } else {
     // 한쪽 자식만 있거나, 자식이 없는 경우 - 남은 자식이 계승. 사실 둘 다 없으면 차피 nil이 계승하니 상관없음.
@@ -343,10 +355,13 @@ int rbtree_erase(rbtree *t, node_t *erase){
     // 검정색 노드가 지워진 경우, 이를 해결해야 함!
     delete_fix(t, repNode);
   }
-  return 1;
+  return 0;
 }
 
 key_t *inorder(const rbtree *t, key_t *arr, key_t *target, node_t *curr){
+  // 예외 처리
+  if (t == NULL || arr == NULL || target == NULL || curr == NULL) return NULL;
+
   // 전위 순회를 사용하며 *arr에 노드 값 저장
   if (curr == t -> nil) return arr;
   arr = inorder(t, arr, target, curr -> left);
@@ -359,6 +374,9 @@ key_t *inorder(const rbtree *t, key_t *arr, key_t *target, node_t *curr){
 }
 
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
+  // 예외 처리
+  if (t == NULL || arr == NULL) return 1;
+
   // 전위 순회 사용 시, 값을 오름차순으로 탐색
   // 주소 arr + n 잔까지만 추가하게끔 매개변수 보냄
   inorder(t, arr, arr + n, t -> root);
