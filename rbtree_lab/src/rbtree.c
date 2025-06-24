@@ -4,15 +4,19 @@
 
 rbtree *new_rbtree(void) {
   rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));
+  if (p == NULL) return NULL;       // 할당 실패 
+
   node_t *nilNode = (node_t *)calloc(1, sizeof(node_t));  
-  
-  // 메모리 할당에 실패했을 때
-  if (p == NULL || nilNode == NULL) return NULL;
+  if (nilNode == NULL) return NULL;  // 할당 실패 
 
   // 앞으로 사용할 닐 노드를 정의하기
   nilNode -> color = RBTREE_BLACK;
-  p -> root = nilNode;
+  
   p -> nil = nilNode;
+  p -> root = p -> nil;
+  p -> nil -> left = p -> nil;
+  p -> nil -> right = p -> nil;
+  p -> nil -> parent = p -> nil;
 
   return p;
 }
@@ -162,6 +166,10 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   // 예외 처리
   if (t == NULL) return NULL;
 
+  // 노드 만들기
+  node_t *newNode = (node_t *)calloc(1, sizeof(node_t));
+  if (newNode == NULL) return NULL;
+
   // 넣을 위치를 찾기
   node_t *curr, *prev;  // 현재 노드, 직전 노드
   prev = t -> nil;
@@ -178,8 +186,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     }
   }
 
-  // 찾았으면 노드를 만들고 넣어 주기
-  node_t *newNode = (node_t *)calloc(1, sizeof(node_t));
+  // 찾았으면 노드 넣어 주기
   newNode -> color = RBTREE_RED;  // 삽입되는 색은 RED이여야 함
   newNode -> left = t -> nil;       // 왼쪽자식은 nil
   newNode -> right = t -> nil;      // 오른쪽자식은 nil
@@ -225,7 +232,8 @@ node_t *rbtree_find(const rbtree *t, const key_t key) {
 }
 
 node_t *rbtree_min(const rbtree *t) {
-  if (t == NULL) return NULL;
+  // 예외 처리
+  if (t == NULL || t -> root == t -> nil) return NULL;
 
   // 왼쪽으로만 이동
   node_t *minNode = t -> root;
@@ -237,7 +245,8 @@ node_t *rbtree_min(const rbtree *t) {
 }
 
 node_t *rbtree_max(const rbtree *t) {
-  if (t == NULL) return NULL;
+  // 예외 처리
+  if (t == NULL || t -> root == t -> nil) return NULL;
 
   // 오른쪽으로만 이동
   node_t *maxNode = t -> root;
@@ -326,7 +335,7 @@ void change_connection(rbtree *t, node_t *erase, node_t *repNode){
 
 int rbtree_erase(rbtree *t, node_t *erase){
   // 예외 처리
-  if (t == NULL || erase == NULL) return 1;
+  if (t == NULL || erase == NULL || erase == t -> nil) return 1;
 
   node_t *repNode;                        // 삭제된 위치를 대체할 노드
   color_t eraseColor;                     // 삭제된 색
@@ -355,7 +364,7 @@ int rbtree_erase(rbtree *t, node_t *erase){
     // 검정색 노드가 지워진 경우, 이를 해결해야 함!
     delete_fix(t, repNode);
   }
-  t -> nil -> parent = t -> nil;  // 부모를 다시 nil 처리... 근데 필수적인진 모르것음
+  t -> nil -> parent = t -> nil;  // 부모를 다시 nil 처리. 없어도 잘 되긴 하던디 해주는게 안전하겄다
   return 0;
 }
 
@@ -363,8 +372,8 @@ key_t *inorder(const rbtree *t, key_t *arr, key_t *target, node_t *curr){
   // 예외 처리
   if (t == NULL || arr == NULL || target == NULL || curr == NULL) return NULL;
 
-  // 전위 순회를 사용하며 *arr에 노드 값 저장
-  if (curr == t -> nil) return arr;
+  // 중위 순회를 사용하며 *arr에 노드 값 저장
+  if (curr == t -> nil || arr >= target) return arr;
   arr = inorder(t, arr, target, curr -> left);
   if (arr < target){
     *arr = curr -> key;
