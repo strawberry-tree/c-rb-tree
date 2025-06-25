@@ -109,11 +109,13 @@ void rotate_left(rbtree *t, node_t *base){
 }
 
 void swap_color(node_t *a, node_t *b){
+  // 예외 처리
+  if (a == NULL || b == NULL) return;
+
   // 두 노드의 색 바꾸기
   color_t temp = a -> color;
   a -> color = b -> color;
   b -> color = temp;
-
 }
 
 void insert_fix(rbtree *t, node_t *newNode){
@@ -298,11 +300,8 @@ void delete_fix(rbtree *t, node_t *dbNode){
 
     } else {
       // CASE 4 -> DB가 왼쪽 자식
-      // 색 바꾸기
-      sibling -> color = repParent -> color;
-      
-      repParent -> color = RBTREE_BLACK;
-
+      // 색 바꾸기                              // 부모와 형제의 색 바꾸기
+      swap_color(sibling, repParent);
       if (repParent -> left == dbNode){
         sibling -> right -> color = RBTREE_BLACK;
         rotate_left(t, repParent);              // 부모 기준 좌회전
@@ -318,10 +317,10 @@ void delete_fix(rbtree *t, node_t *dbNode){
 }
 
 void change_connection(rbtree *t, node_t *erase, node_t *repNode){
+  // 예외처리
   if (t == NULL || erase == NULL || repNode == NULL) return;
 
-  // erase의 부모 노드 및 erase의 자식 노드를 연결하고
-  // erase 노드를 free해주는 함수
+  // erase의 자리에 repNode를 연결하고, repNode의 부모를 erase의 부모로 설정
   if (erase -> parent == t -> nil){
     t -> root = repNode;
   } else if (erase -> parent -> right == erase) {
@@ -330,7 +329,7 @@ void change_connection(rbtree *t, node_t *erase, node_t *repNode){
     erase -> parent -> left = repNode;
   }
   repNode -> parent = erase -> parent;
-  free(erase);
+
 }
 
 int rbtree_erase(rbtree *t, node_t *erase){
@@ -338,33 +337,48 @@ int rbtree_erase(rbtree *t, node_t *erase){
   if (t == NULL || erase == NULL || erase == t -> nil) return 1;
 
   node_t *repNode;                        // 삭제된 위치를 대체할 노드
-  color_t eraseColor;                     // 삭제된 색
+  color_t eraseColor = erase -> color;    // 삭제된 색
 
   if (erase -> left != t -> nil && erase -> right != t -> nil){
     // 양쪽 자식이 있는 경우- 찾아라 계승자
-    node_t *successor = erase -> left;
-    while (successor -> right != t -> nil){
-      successor = successor -> right;
+    node_t *predecessor = erase -> left;    // 계승자 노드 (왼쪽 서브트리에서 가장 큰 값)
+    while (predecessor -> right != t -> nil){
+      predecessor = predecessor -> right;
     }
-    erase -> key = successor -> key;
-    repNode = successor -> left;
-    eraseColor = successor -> color;
-    change_connection(t, successor, repNode);
+    eraseColor = predecessor -> color;      // 계승자 노드의 색 저장
+    repNode = predecessor -> left;          // 계승자 노드의 왼쪽자식이 계승자 노드 대체
+
+    if (predecessor != erase -> left){
+      // predecessor -> left가 predecssor의 자리를 대신하도록 연결
+      change_connection(t, predecessor, predecessor -> left);
+      predecessor -> left = erase -> left;
+      predecessor -> left -> parent = predecessor;
+    } else {
+      repNode -> parent = predecessor;
+    }
+    // predecessor가 erase의 자리를 대신하도록 연결
+    change_connection(t, erase, predecessor);
+    predecessor -> right = erase -> right;
+    predecessor -> right -> parent = predecessor;
+
+    // predecessor의 색을 원래 노드의 색으로 변경
+    predecessor -> color = erase -> color;
   } else {
-    // 한쪽 자식만 있거나, 자식이 없는 경우 - 남은 자식이 계승. 사실 둘 다 없으면 차피 nil이 계승하니 상관없음.
+    // 한쪽 자식만 있거나, 자식이 없는 경우 - 남은 자식이 계승. 
+    // 사실 둘 다 없으면 차피 nil이 계승하니 상관없음.
     if (erase -> left == t -> nil){
       repNode = erase -> right;
     } else {
       repNode = erase -> left;
     }
-    eraseColor = erase -> color;
     change_connection(t, erase, repNode);
   }
+  free(erase);
   if (eraseColor == RBTREE_BLACK){
     // 검정색 노드가 지워진 경우, 이를 해결해야 함!
     delete_fix(t, repNode);
   }
-  t -> nil -> parent = t -> nil;  // 부모를 다시 nil 처리. 없어도 잘 되긴 하던디 해주는게 안전하겄다
+  t -> nil -> parent = t -> nil;  // 부모를 다시 nil 처리
   return 0;
 }
 
