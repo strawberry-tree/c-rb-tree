@@ -273,6 +273,7 @@ void delete_fix(rbtree *t, node_t *dbNode){
       sibling = repParent -> left;
     }
 
+
     if (sibling -> color == RBTREE_RED){
       // CASE 1
       swap_color(repParent, sibling);       // 부모와 형제의 색 바꾸기
